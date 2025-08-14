@@ -279,22 +279,29 @@
     </div>
 
     <script>
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyGOw-LxKwgKO0Is1jlTwiMv1mqsTDvqRJ_xPe_4r0z8p_20jPu5QiUG8uEHH9SbtQy/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxcJQt_NwHbhVeRoRJgH1oN6aqCr0MJkHZl2RSkAaph44YaxmVEdxx46n9SXT1QO1Fj/exec';
         
         function loadSubmissions() {
+            console.log('Loading submissions from Google Sheets...');
+            
             // Try to load from Google Sheets first
             fetch(SCRIPT_URL)
-                .then(response => response.json())
+                .then(response => {
+                    console.log('Google Sheets response status:', response.status);
+                    return response.json();
+                })
                 .then(submissions => {
-                    if (submissions && !submissions.error) {
+                    console.log('Google Sheets data received:', submissions);
+                    if (submissions && !submissions.error && Array.isArray(submissions)) {
                         displaySubmissions(submissions);
+                        console.log('Displaying Google Sheets data');
                     } else {
-                        // Fallback to localStorage
+                        console.log('Invalid Google Sheets data, using localStorage');
                         loadLocalSubmissions();
                     }
                 })
                 .catch(error => {
-                    console.log('Google Sheets unavailable, using local storage');
+                    console.error('Google Sheets fetch error:', error);
                     loadLocalSubmissions();
                 });
         }
