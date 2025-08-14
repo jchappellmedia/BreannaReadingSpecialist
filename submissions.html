@@ -253,8 +253,8 @@
         <div class="controls">
             <a href="index.html" class="btn btn-secondary">← Back to Home</a>
             <div>
+                <button onclick="loadSubmissions()" class="btn btn-secondary">🔄 Refresh</button>
                 <button onclick="exportToCSV()" class="btn btn-primary">📥 Export CSV</button>
-                <button onclick="clearAllData()" class="btn btn-secondary">🗑️ Clear All</button>
             </div>
         </div>
 
@@ -279,8 +279,32 @@
     </div>
 
     <script>
+        const SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE'; // Replace with your Apps Script URL
+        
         function loadSubmissions() {
+            // Try to load from Google Sheets first
+            fetch(SCRIPT_URL)
+                .then(response => response.json())
+                .then(submissions => {
+                    if (submissions && !submissions.error) {
+                        displaySubmissions(submissions);
+                    } else {
+                        // Fallback to localStorage
+                        loadLocalSubmissions();
+                    }
+                })
+                .catch(error => {
+                    console.log('Google Sheets unavailable, using local storage');
+                    loadLocalSubmissions();
+                });
+        }
+        
+        function loadLocalSubmissions() {
             const submissions = JSON.parse(localStorage.getItem('intakeSubmissions')) || [];
+            displaySubmissions(submissions);
+        }
+        
+        function displaySubmissions(submissions) {
             const tableContainer = document.getElementById('submissionsTable');
             
             // Update stats
@@ -307,13 +331,16 @@
                             <th>Phone</th>
                             <th>How Can I Help?</th>
                             <th>Submitted</th>
-                            <th>Actions</th>
+                            <th>Source</th>
                         </tr>
                     </thead>
                     <tbody>
             `;
             
             submissions.forEach((submission, index) => {
+                const timestamp = submission.timestamp instanceof Date ? 
+                    submission.timestamp.toLocaleString() : submission.timestamp;
+                    
                 tableHTML += `
                     <tr>
                         <td><span class="submission-id">${index + 1}</span></td>
@@ -321,12 +348,8 @@
                         <td><a href="mailto:${escapeHtml(submission.email)}" style="color: #8b64ff;">${escapeHtml(submission.email)}</a></td>
                         <td><a href="tel:${escapeHtml(submission.phone)}" style="color: #8b64ff;">${escapeHtml(submission.phone)}</a></td>
                         <td><div class="help-text">${escapeHtml(submission.help)}</div></td>
-                        <td>${submission.timestamp}</td>
-                        <td>
-                            <div class="actions">
-                                <button onclick="deleteSubmission(${index})" class="action-btn delete-btn">Delete</button>
-                            </div>
-                        </td>
+                        <td>${timestamp}</td>
+                        <td><span style="font-size: 0.8em; color: #666;">📊 Sheets</span></td>
                     </tr>
                 `;
             });
@@ -374,24 +397,49 @@
         }
         
         function exportToCSV() {
-            const submissions = JSON.parse(localStorage.getItem('intakeSubmissions')) || [];
-            
-            if (submissions.length === 0) {
-                alert('No submissions to export.');
-                return;
-            }
-            
-            const headers = ['ID', 'Name', 'Email', 'Phone', 'How Can I Help', 'Submitted'];
+            // Try to get from Google Sheets first
+            fetch(SCRIPT_URL)
+                .then(response => response.json())
+                .then(submissions => {
+                    if (submissions && !submissions.error && submissions.length > 0) {
+                        generateCSV(submissions, 'google_sheets');
+                    } else {
+                        // Fallback to localStorage
+                        const localSubmissions = JSON.parse(localStorage.getItem('intakeSubmissions')) || [];
+                        if (localSubmissions.length > 0) {
+                            generateCSV(localSubmissions, 'local_storage');
+                        } else {
+                            alert('No submissions to export.');
+                        }
+                    }
+                })
+                .catch(error => {
+                    const localSubmissions = JSON.parse(localStorage.getItem('intakeSubmissions')) || [];
+                    if (localSubmissions.length > 0) {
+                        generateCSV(localSubmissions, 'local_storage');
+                    } else {
+                        alert('No submissions to export.');
+                    }
+                });
+        }
+        
+        function generateCSV(submissions, source) {
+            const headers = ['ID', 'Name', 'Email', 'Phone', 'How Can I Help', 'Submitted', 'Source'];
             const csvContent = [
                 headers.join(','),
-                ...submissions.map((submission, index) => [
-                    index + 1,
-                    `"${submission.name.replace(/"/g, '""')}"`,
-                    `"${submission.email.replace(/"/g, '""')}"`,
-                    `"${submission.phone.replace(/"/g, '""')}"`,
-                    `"${submission.help.replace(/"/g, '""')}"`,
-                    `"${submission.timestamp.replace(/"/g, '""')}"`
-                ].join(','))
+                ...submissions.map((submission, index) => {
+                    const timestamp = submission.timestamp instanceof Date ? 
+                        submission.timestamp.toLocaleString() : submission.timestamp;
+                    return [
+                        index + 1,
+                        `"${submission.name.replace(/"/g, '""')}"`,
+                        `"${submission.email.replace(/"/g, '""')}"`,
+                        `"${submission.phone.replace(/"/g, '""')}"`,
+                        `"${submission.help.replace(/"/g, '""')}"`,
+                        `"${timestamp.replace(/"/g, '""')}"`,
+                        source === 'google_sheets' ? 'Google Sheets' : 'Local Storage'
+                    ].join(',');
+                })
             ].join('\n');
             
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
