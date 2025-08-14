@@ -253,6 +253,7 @@
         <div class="controls">
             <a href="index.html" class="btn btn-secondary">← Back to Home</a>
             <div>
+                <button onclick="testGoogleSheets()" class="btn btn-secondary">🧪 Test Apps Script</button>
                 <button onclick="loadSubmissions()" class="btn btn-secondary">🔄 Refresh from Sheets</button>
                 <button onclick="exportToCSV()" class="btn btn-primary">📥 Export CSV</button>
             </div>
@@ -282,44 +283,75 @@
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxcJQt_NwHbhVeRoRJgH1oN6aqCr0MJkHZl2RSkAaph44YaxmVEdxx46n9SXT1QO1Fj/exec';
         
         function loadSubmissions() {
-            console.log('Loading submissions from Google Sheets...');
+            console.log('🔍 Loading submissions from Google Sheets...');
+            console.log('📍 Apps Script URL:', SCRIPT_URL);
             
             // Show loading state
             const tableContainer = document.getElementById('submissionsTable');
             tableContainer.innerHTML = '<div style="text-align: center; padding: 40px; color: #8b64ff;"><h3>📊 Loading submissions from Google Sheets...</h3><p>Please wait...</p></div>';
             
-            // Load from Google Sheets
-            fetch(SCRIPT_URL + '?t=' + Date.now(), {
+            // Simple fetch without extra parameters that might cause issues
+            fetch(SCRIPT_URL, {
                 method: 'GET',
-                headers: {
-                    'Cache-Control': 'no-cache'
-                }
+                redirect: 'follow'
             })
             .then(response => {
-                console.log('Google Sheets response status:', response.status);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(submissions => {
-                console.log('Google Sheets data received:', submissions);
+                console.log('✅ Response received!');
+                console.log('📊 Status:', response.status);
+                console.log('📝 Status Text:', response.statusText);
+                console.log('🔗 Final URL:', response.url);
+                console.log('📋 Headers:', Object.fromEntries(response.headers.entries()));
                 
-                if (submissions && Array.isArray(submissions)) {
-                    // Filter out any invalid entries
-                    const validSubmissions = submissions.filter(sub => 
-                        sub && sub.name && sub.email
-                    );
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                return response.text(); // Always get as text first
+            })
+            .then(rawText => {
+                console.log('📄 Raw response length:', rawText.length);
+                console.log('📄 Raw response (first 500 chars):', rawText.substring(0, 500));
+                
+                // Clean the response - sometimes there are extra characters
+                const cleanedText = rawText.trim();
+                
+                try {
+                    const submissions = JSON.parse(cleanedText);
+                    console.log('✅ Parsed JSON successfully!');
+                    console.log('📊 Data type:', typeof submissions);
+                    console.log('📊 Is array:', Array.isArray(submissions));
+                    console.log('📊 Data:', submissions);
                     
-                    console.log('Valid submissions:', validSubmissions.length);
-                    displaySubmissions(validSubmissions);
-                } else {
-                    console.log('No valid data from Google Sheets');
-                    displayEmptyState();
+                    if (Array.isArray(submissions)) {
+                        console.log('📊 Number of submissions:', submissions.length);
+                        
+                        // Filter and validate submissions
+                        const validSubmissions = submissions.filter((sub, index) => {
+                            console.log(`🔍 Checking submission ${index}:`, sub);
+                            const isValid = sub && (sub.name || sub.email); // At least one field should exist
+                            if (!isValid) {
+                                console.log(`⚠️ Invalid submission ${index}:`, sub);
+                            }
+                            return isValid;
+                        });
+                        
+                        console.log('✅ Valid submissions:', validSubmissions.length);
+                        displaySubmissions(validSubmissions);
+                    } else if (submissions && submissions.error) {
+                        console.log('❌ Server returned error:', submissions.error);
+                        displayErrorState(new Error(`Server Error: ${submissions.error}`));
+                    } else {
+                        console.log('❌ Response is not an array:', typeof submissions);
+                        displayErrorState(new Error(`Invalid data format. Expected array, got: ${typeof submissions}`));
+                    }
+                } catch (parseError) {
+                    console.error('❌ JSON Parse Error:', parseError);
+                    console.log('📄 Full raw response:', rawText);
+                    displayErrorState(new Error(`Cannot parse response as JSON. Raw response: ${rawText.substring(0, 200)}...`));
                 }
             })
             .catch(error => {
-                console.error('Google Sheets fetch error:', error);
+                console.error('❌ Fetch Error:', error);
                 displayErrorState(error);
             });
         }
@@ -403,7 +435,59 @@
             `;
         }
         
+        
         function displayErrorState(error) {
+            const tableContainer = document.getElementById('submissionsTable');
+            tableContainer.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #ff6b9d; background: #fff0f8; border-radius: 15px; border: 2px solid #ff6b9d;">
+                    <h3>⚠️ Error Loading from Google Sheets</h3>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <details style="margin: 20px 0; text-align: left;">
+                        <summary style="cursor: pointer; color: #8b64ff;">🔍 Click for debugging info</summary>
+                        <div style="background: #f8f4ff; padding: 15px; border-radius: 8px; margin-top: 10px; font-family: monospace; font-size: 0.9em;">
+                            <strong>Apps Script URL:</strong><br>
+                            ${SCRIPT_URL}<br><br>
+                            <strong>Troubleshooting Steps:</strong><br>
+                            1. Click "Test Apps Script" button<br>
+                            2. Check browser console (F12)<br>
+                            3. Verify Apps Script is deployed correctly<br>
+                            4. Make sure Google Sheet exists and has data
+                        </div>
+                    </details>
+                    <button onclick="testGoogleSheets()" class="btn btn-secondary" style="margin: 10px;">🧪 Test Apps Script</button>
+                    <button onclick="loadSubmissions()" class="btn btn-primary" style="margin: 10px;">🔄 Try Again</button>
+                </div>
+            `;
+        }
+            console.log('🧪 Testing Google Apps Script...');
+            alert('🧪 Testing Google Apps Script - Check the browser console (F12) for detailed results.');
+            
+            const testUrl = SCRIPT_URL + '?test=debug&t=' + Date.now();
+            console.log('🔗 Test URL:', testUrl);
+            
+            fetch(testUrl)
+                .then(response => {
+                    console.log('🎯 Test Response Status:', response.status);
+                    console.log('🎯 Test Response Headers:', [...response.headers.entries()]);
+                    return response.text();
+                })
+                .then(data => {
+                    console.log('🎯 Test Response Data:', data);
+                    
+                    try {
+                        const parsed = JSON.parse(data);
+                        console.log('✅ Test JSON Parse Success:', parsed);
+                        alert(`✅ Google Apps Script is working!\nData: ${JSON.stringify(parsed, null, 2)}`);
+                    } catch (e) {
+                        console.log('❌ Test JSON Parse Failed:', e);
+                        alert(`⚠️ Google Apps Script responded but data is not JSON:\n${data.substring(0, 200)}...`);
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Test Failed:', error);
+                    alert(`❌ Google Apps Script test failed:\n${error.message}`);
+                });
+        }
             const tableContainer = document.getElementById('submissionsTable');
             tableContainer.innerHTML = `
                 <div style="text-align: center; padding: 40px; color: #ff6b9d;">
@@ -470,6 +554,37 @@
             `;
             
             tableContainer.innerHTML = tableHTML;
+        }
+        
+        function testGoogleSheets() {
+            console.log('🧪 Running simple test of Google Apps Script...');
+            
+            fetch(SCRIPT_URL, {
+                method: 'GET',
+                redirect: 'follow'
+            })
+                .then(response => {
+                    console.log('🎯 Test Response Status:', response.status);
+                    console.log('🎯 Test Response URL:', response.url);
+                    return response.text();
+                })
+                .then(data => {
+                    console.log('🎯 Test Response Data (first 200 chars):', data.substring(0, 200));
+                    console.log('🎯 Test Response Data (full):', data);
+                    
+                    try {
+                        const parsed = JSON.parse(data);
+                        console.log('✅ Test JSON Parse Success:', parsed);
+                        alert(`✅ Google Apps Script is working!\n\nReturned ${Array.isArray(parsed) ? parsed.length : 'non-array'} items\n\nCheck console for full details.`);
+                    } catch (e) {
+                        console.log('❌ Test JSON Parse Failed:', e);
+                        alert(`⚠️ Google Apps Script responded but data is not valid JSON:\n\n${data.substring(0, 300)}...\n\nCheck console for full response.`);
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Test Failed:', error);
+                    alert(`❌ Cannot connect to Google Apps Script:\n\n${error.message}\n\nCheck console for details.`);
+                });
         }
         
         function updateStats(submissions) {
