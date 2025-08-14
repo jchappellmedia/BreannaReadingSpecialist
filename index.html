@@ -387,17 +387,44 @@
                 timestamp: new Date().toLocaleString()
             };
             
-            // Get existing submissions or create empty array
-            let submissions = JSON.parse(localStorage.getItem('intakeSubmissions')) || [];
+            // Send to Google Sheets
+            const SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE'; // Replace with your Apps Script URL
             
-            // Add new submission
-            submissions.push(formData);
-            
-            // Save to localStorage
-            localStorage.setItem('intakeSubmissions', JSON.stringify(submissions));
-            
-            // Redirect to thank you page with timestamp
-            window.location.href = `thank-you.html?timestamp=${encodeURIComponent(formData.timestamp)}`;
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    // Also save locally as backup
+                    let submissions = JSON.parse(localStorage.getItem('intakeSubmissions')) || [];
+                    submissions.push(formData);
+                    localStorage.setItem('intakeSubmissions', JSON.stringify(submissions));
+                    
+                    // Redirect to thank you page
+                    window.location.href = 'thank-you.html';
+                } else {
+                    // Fallback to local storage only
+                    let submissions = JSON.parse(localStorage.getItem('intakeSubmissions')) || [];
+                    submissions.push(formData);
+                    localStorage.setItem('intakeSubmissions', JSON.stringify(submissions));
+                    
+                    window.location.href = 'thank-you.html';
+                }
+            })
+            .catch(error => {
+                // Fallback to local storage if Google Sheets fails
+                console.log('Google Sheets unavailable, using local storage');
+                let submissions = JSON.parse(localStorage.getItem('intakeSubmissions')) || [];
+                submissions.push(formData);
+                localStorage.setItem('intakeSubmissions', JSON.stringify(submissions));
+                
+                window.location.href = 'thank-you.html';
+            });
         });
     </script>
 </body>
