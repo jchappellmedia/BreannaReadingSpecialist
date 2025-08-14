@@ -253,6 +253,7 @@
         <div class="controls">
             <a href="index.html" class="btn btn-secondary">← Back to Home</a>
             <div>
+                <button onclick="testGoogleSheets()" class="btn btn-secondary">🧪 Test Connection</button>
                 <button onclick="loadSubmissions()" class="btn btn-secondary">🔄 Refresh</button>
                 <button onclick="exportToCSV()" class="btn btn-primary">📥 Export CSV</button>
             </div>
@@ -284,19 +285,55 @@
         function loadSubmissions() {
             console.log('Loading submissions from Google Sheets...');
             
-            // Try to load from Google Sheets first
-            fetch(SCRIPT_URL)
+            // Show loading state
+            const tableContainer = document.getElementById('submissionsTable');
+            tableContainer.innerHTML = '<div style="text-align: center; padding: 40px;"><h3>Loading submissions...</h3></div>';
+            
+            // Try to load from Google Sheets first with timeout
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout')), 10000)
+            );
+            
+            const fetchPromise = fetch(SCRIPT_URL + '?t=' + Date.now(), {
+                method: 'GET',
+                headers: {
+                    'Cache-Control': 'no-cache'
+                }
+            });
+            
+            Promise.race([fetchPromise, timeoutPromise])
                 .then(response => {
                     console.log('Google Sheets response status:', response.status);
-                    return response.json();
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.text(); // Get as text first to see raw response
                 })
-                .then(submissions => {
-                    console.log('Google Sheets data received:', submissions);
-                    if (submissions && !submissions.error && Array.isArray(submissions)) {
-                        displaySubmissions(submissions);
-                        console.log('Displaying Google Sheets data');
-                    } else {
-                        console.log('Invalid Google Sheets data, using localStorage');
+                .then(textData => {
+                    console.log('Raw Google Sheets response:', textData);
+                    try {
+                        const submissions = JSON.parse(textData);
+                        console.log('Parsed Google Sheets data:', submissions);
+                        
+                        if (Array.isArray(submissions) && submissions.length > 0) {
+                            // Filter out any invalid entries and format data
+                            const validSubmissions = submissions.filter(sub => 
+                                sub && sub.name && sub.email
+                            ).map(sub => ({
+                                ...sub,
+                                timestamp: sub.timestamp || 'Unknown',
+                                source: 'Google Sheets'
+                            }));
+                            
+                            console.log('Valid Google Sheets submissions:', validSubmissions.length);
+                            displaySubmissions(validSubmissions);
+                        } else {
+                            console.log('No valid Google Sheets data, checking localStorage');
+                            loadLocalSubmissions();
+                        }
+                    } catch (parseError) {
+                        console.error('JSON parse error:', parseError);
+                        console.log('Trying localStorage fallback');
                         loadLocalSubmissions();
                     }
                 })
@@ -307,8 +344,14 @@
         }
         
         function loadLocalSubmissions() {
+            console.log('Loading from localStorage...');
             const submissions = JSON.parse(localStorage.getItem('intakeSubmissions')) || [];
-            displaySubmissions(submissions);
+            const localSubmissions = submissions.map(sub => ({
+                ...sub,
+                source: 'Local Storage'
+            }));
+            console.log('Local submissions:', localSubmissions.length);
+            displaySubmissions(localSubmissions);
         }
         
         function displaySubmissions(submissions) {
@@ -329,6 +372,10 @@
             }
             
             let tableHTML = `
+                <div style="margin-bottom: 20px; padding: 15px; background: #f8f4ff; border-radius: 10px; border-left: 4px solid #8b64ff;">
+                    <strong>📊 Data Source:</strong> Showing ${submissions.length} submission(s)
+                    <br><small>Last updated: ${new Date().toLocaleString()}</small>
+                </div>
                 <table>
                     <thead>
                         <tr>
@@ -345,18 +392,36 @@
             `;
             
             submissions.forEach((submission, index) => {
-                const timestamp = submission.timestamp instanceof Date ? 
-                    submission.timestamp.toLocaleString() : submission.timestamp;
-                    
+                let timestamp = 'Unknown';
+                
+                // Handle different timestamp formats
+                if (submission.timestamp) {
+                    if (submission.timestamp instanceof Date) {
+                        timestamp = submission.timestamp.toLocaleString();
+                    } else if (typeof submission.timestamp === 'string') {
+                        timestamp = submission.timestamp;
+                    } else {
+                        // Try to format as date
+                        try {
+                            timestamp = new Date(submission.timestamp).toLocaleString();
+                        } catch (e) {
+                            timestamp = String(submission.timestamp);
+                        }
+                    }
+                }
+                
+                const source = submission.source || 'Unknown';
+                const sourceIcon = source.includes('Google') ? '📊' : '💾';
+                
                 tableHTML += `
                     <tr>
                         <td><span class="submission-id">${index + 1}</span></td>
-                        <td><strong>${escapeHtml(submission.name)}</strong></td>
-                        <td><a href="mailto:${escapeHtml(submission.email)}" style="color: #8b64ff;">${escapeHtml(submission.email)}</a></td>
-                        <td><a href="tel:${escapeHtml(submission.phone)}" style="color: #8b64ff;">${escapeHtml(submission.phone)}</a></td>
-                        <td><div class="help-text">${escapeHtml(submission.help)}</div></td>
+                        <td><strong>${escapeHtml(submission.name || 'N/A')}</strong></td>
+                        <td><a href="mailto:${escapeHtml(submission.email || '')}" style="color: #8b64ff;">${escapeHtml(submission.email || 'N/A')}</a></td>
+                        <td><a href="tel:${escapeHtml(submission.phone || '')}" style="color: #8b64ff;">${escapeHtml(submission.phone || 'N/A')}</a></td>
+                        <td><div class="help-text">${escapeHtml(submission.help || 'N/A')}</div></td>
                         <td>${timestamp}</td>
-                        <td><span style="font-size: 0.8em; color: #666;">📊 Sheets</span></td>
+                        <td><span style="font-size: 0.8em; color: #666;">${sourceIcon} ${source}</span></td>
                     </tr>
                 `;
             });
@@ -401,6 +466,24 @@
                 localStorage.removeItem('intakeSubmissions');
                 loadSubmissions();
             }
+        }
+        
+        function testGoogleSheets() {
+            console.log('Testing Google Sheets connection...');
+            
+            fetch(SCRIPT_URL + '?test=true&t=' + Date.now())
+                .then(response => {
+                    console.log('Test response status:', response.status);
+                    return response.text();
+                })
+                .then(data => {
+                    console.log('Test response data:', data);
+                    alert(`Google Sheets Test Result:\nStatus: Connected\nData: ${data.substring(0, 100)}...`);
+                })
+                .catch(error => {
+                    console.error('Test error:', error);
+                    alert(`Google Sheets Test Result:\nStatus: Failed\nError: ${error.message}`);
+                });
         }
         
         function exportToCSV() {
