@@ -396,8 +396,8 @@
             // Save to localStorage
             localStorage.setItem('intakeSubmissions', JSON.stringify(submissions));
             
-            // Redirect to spreadsheet page
-            window.location.href = 'submissions.html';
+            // Redirect to thank you page with timestamp
+            window.location.href = `thank-you.html?timestamp=${encodeURIComponent(formData.timestamp)}`;
         });
     </script>
 </body>
