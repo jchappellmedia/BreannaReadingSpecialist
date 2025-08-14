@@ -253,9 +253,8 @@
         <div class="controls">
             <a href="index.html" class="btn btn-secondary">← Back to Home</a>
             <div>
-                <button onclick="testGoogleSheets()" class="btn btn-secondary">🧪 Test Connection</button>
-                <button onclick="loadSubmissions()" class="btn btn-secondary">🔄 Refresh</button>
                 <button onclick="exportToCSV()" class="btn btn-primary">📥 Export CSV</button>
+                <button onclick="clearAllData()" class="btn btn-secondary">🗑️ Clear All</button>
             </div>
         </div>
 
@@ -283,75 +282,63 @@
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxcJQt_NwHbhVeRoRJgH1oN6aqCr0MJkHZl2RSkAaph44YaxmVEdxx46n9SXT1QO1Fj/exec';
         
         function loadSubmissions() {
-            console.log('Loading submissions from Google Sheets...');
-            
-            // Show loading state
+            const submissions = JSON.parse(localStorage.getItem('intakeSubmissions')) || [];
             const tableContainer = document.getElementById('submissionsTable');
-            tableContainer.innerHTML = '<div style="text-align: center; padding: 40px;"><h3>Loading submissions...</h3></div>';
             
-            // Try to load from Google Sheets first with timeout
-            const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Timeout')), 10000)
-            );
+            // Update stats
+            updateStats(submissions);
             
-            const fetchPromise = fetch(SCRIPT_URL + '?t=' + Date.now(), {
-                method: 'GET',
-                headers: {
-                    'Cache-Control': 'no-cache'
-                }
+            if (submissions.length === 0) {
+                tableContainer.innerHTML = `
+                    <div class="empty-state">
+                        <h3>📝 No Submissions Yet</h3>
+                        <p>When parents fill out the intake form, their submissions will appear here.</p>
+                        <a href="index.html" class="btn btn-primary">Go to Intake Form</a>
+                    </div>
+                `;
+                return;
+            }
+            
+            let tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>How Can I Help?</th>
+                            <th>Submitted</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            submissions.forEach((submission, index) => {
+                tableHTML += `
+                    <tr>
+                        <td><span class="submission-id">${index + 1}</span></td>
+                        <td><strong>${escapeHtml(submission.name)}</strong></td>
+                        <td><a href="mailto:${escapeHtml(submission.email)}" style="color: #8b64ff;">${escapeHtml(submission.email)}</a></td>
+                        <td><a href="tel:${escapeHtml(submission.phone)}" style="color: #8b64ff;">${escapeHtml(submission.phone)}</a></td>
+                        <td><div class="help-text">${escapeHtml(submission.help)}</div></td>
+                        <td>${submission.timestamp}</td>
+                        <td>
+                            <div class="actions">
+                                <button onclick="deleteSubmission(${index})" class="action-btn delete-btn">Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
             });
             
-            Promise.race([fetchPromise, timeoutPromise])
-                .then(response => {
-                    console.log('Google Sheets response status:', response.status);
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.text(); // Get as text first to see raw response
-                })
-                .then(textData => {
-                    console.log('Raw Google Sheets response:', textData);
-                    try {
-                        const submissions = JSON.parse(textData);
-                        console.log('Parsed Google Sheets data:', submissions);
-                        
-                        if (Array.isArray(submissions) && submissions.length > 0) {
-                            // Filter out any invalid entries and format data
-                            const validSubmissions = submissions.filter(sub => 
-                                sub && sub.name && sub.email
-                            ).map(sub => ({
-                                ...sub,
-                                timestamp: sub.timestamp || 'Unknown',
-                                source: 'Google Sheets'
-                            }));
-                            
-                            console.log('Valid Google Sheets submissions:', validSubmissions.length);
-                            displaySubmissions(validSubmissions);
-                        } else {
-                            console.log('No valid Google Sheets data, checking localStorage');
-                            loadLocalSubmissions();
-                        }
-                    } catch (parseError) {
-                        console.error('JSON parse error:', parseError);
-                        console.log('Trying localStorage fallback');
-                        loadLocalSubmissions();
-                    }
-                })
-                .catch(error => {
-                    console.error('Google Sheets fetch error:', error);
-                    loadLocalSubmissions();
-                });
-        }
-        
-        function loadLocalSubmissions() {
-            console.log('Loading from localStorage...');
-            const submissions = JSON.parse(localStorage.getItem('intakeSubmissions')) || [];
-            const localSubmissions = submissions.map(sub => ({
-                ...sub,
-                source: 'Local Storage'
-            }));
-            console.log('Local submissions:', localSubmissions.length);
-            displaySubmissions(localSubmissions);
+            tableHTML += `
+                    </tbody>
+                </table>
+            `;
+            
+            tableContainer.innerHTML = tableHTML;
         }
         
         function displaySubmissions(submissions) {
