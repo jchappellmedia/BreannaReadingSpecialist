@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Intake Form Submissions - Breanna Chappell Reading Specialist</title>
+    <title>Form Submissions - Breanna Chappell Reading Specialist</title>
     <style>
         * {
             margin: 0;
@@ -44,6 +44,20 @@
             opacity: 0.9;
         }
 
+        .status-card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 20px rgba(138, 100, 255, 0.15);
+            border-left: 4px solid #8b64ff;
+        }
+
+        .status-card h3 {
+            color: #8b64ff;
+            margin-bottom: 10px;
+        }
+
         .controls {
             display: flex;
             justify-content: space-between;
@@ -79,6 +93,12 @@
         .btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(138, 100, 255, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
         }
 
         .stats {
@@ -163,55 +183,68 @@
             transition: all 0.2s ease;
         }
 
-        .help-text {
-            max-width: 300px;
-            overflow-wrap: break-word;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #666;
-        }
-
-        .empty-state h3 {
-            color: #8b64ff;
-            font-size: 1.8em;
-            margin-bottom: 15px;
-        }
-
-        .empty-state p {
-            font-size: 1.1em;
-            margin-bottom: 30px;
-        }
-
         .submission-id {
             font-weight: bold;
             color: #8b64ff;
         }
 
-        .actions {
-            display: flex;
-            gap: 10px;
+        .help-text {
+            max-width: 300px;
+            overflow-wrap: break-word;
         }
 
-        .action-btn {
-            padding: 8px 15px;
-            border: none;
+        .empty-state, .error-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-state h3, .error-state h3 {
+            color: #8b64ff;
+            font-size: 1.8em;
+            margin-bottom: 15px;
+        }
+
+        .empty-state p, .error-state p {
+            font-size: 1.1em;
+            margin-bottom: 30px;
+        }
+
+        .error-state {
+            background: #fff0f8;
+            border: 2px solid #ff6b9d;
             border-radius: 15px;
-            font-size: 0.9em;
-            cursor: pointer;
-            transition: all 0.3s ease;
+            color: #ff6b9d;
         }
 
-        .delete-btn {
-            background: #ff6b9d;
-            color: white;
+        .error-state h3 {
+            color: #ff6b9d;
         }
 
-        .delete-btn:hover {
-            background: #e55a8a;
-            transform: scale(1.05);
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #8b64ff;
+        }
+
+        .loading h3 {
+            font-size: 1.8em;
+            margin-bottom: 15px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f0e8ff;
+            border-top: 4px solid #8b64ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         @media (max-width: 768px) {
@@ -246,130 +279,175 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📊 Intake Form Submissions</h1>
-            <p>Reading Specialist Inquiry Management</p>
+            <h1>📊 Form Submissions Dashboard</h1>
+            <p>Google Sheets Integration - Reading Specialist Inquiries</p>
+        </div>
+
+        <div id="status" class="status-card">
+            <h3>🔄 System Status</h3>
+            <p>Initializing connection to Google Sheets...</p>
         </div>
 
         <div class="controls">
             <a href="index.html" class="btn btn-secondary">← Back to Home</a>
             <div>
-                <button onclick="testGoogleSheets()" class="btn btn-secondary">🧪 Test Apps Script</button>
-                <button onclick="loadSubmissions()" class="btn btn-secondary">🔄 Refresh from Sheets</button>
-                <button onclick="exportToCSV()" class="btn btn-primary">📥 Export CSV</button>
+                <button id="refreshBtn" onclick="loadData()" class="btn btn-secondary">🔄 Refresh</button>
+                <button id="testBtn" onclick="testConnection()" class="btn btn-secondary">🧪 Test Connection</button>
+                <button id="exportBtn" onclick="exportData()" class="btn btn-primary">📥 Export CSV</button>
             </div>
         </div>
 
         <div class="stats">
             <div class="stat-card">
-                <div class="stat-number" id="totalSubmissions">0</div>
+                <div class="stat-number" id="totalCount">-</div>
                 <div class="stat-label">Total Submissions</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number" id="todaySubmissions">0</div>
-                <div class="stat-label">Today's Submissions</div>
+                <div class="stat-number" id="todayCount">-</div>
+                <div class="stat-label">Today</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number" id="weekSubmissions">0</div>
+                <div class="stat-number" id="weekCount">-</div>
                 <div class="stat-label">This Week</div>
             </div>
         </div>
 
         <div class="table-container">
-            <div id="submissionsTable"></div>
+            <div id="dataDisplay">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <h3>Loading Data</h3>
+                    <p>Connecting to Google Sheets...</p>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxcJQt_NwHbhVeRoRJgH1oN6aqCr0MJkHZl2RSkAaph44YaxmVEdxx46n9SXT1QO1Fj/exec';
-        
-        function loadSubmissions() {
-            console.log('🔍 Loading submissions from Google Sheets...');
-            console.log('📍 Apps Script URL:', SCRIPT_URL);
+        // Configuration
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxcJQt_NwHbhVeRoRJgH1oN6aqCr0MJkHZl2RSkAaph44YaxmVEdxx46n9SXT1QO1Fj/exec';
+        let currentData = [];
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📱 Page loaded, starting data fetch...');
+            updateStatus('Loading data from Google Sheets...', 'info');
+            loadData();
+        });
+
+        // Update status display
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            const icons = {
+                'info': '🔄',
+                'success': '✅',
+                'error': '❌',
+                'warning': '⚠️'
+            };
             
-            // Show loading state
-            const tableContainer = document.getElementById('submissionsTable');
-            tableContainer.innerHTML = '<div style="text-align: center; padding: 40px; color: #8b64ff;"><h3>📊 Loading submissions from Google Sheets...</h3><p>Please wait...</p></div>';
+            statusDiv.innerHTML = `
+                <h3>${icons[type]} System Status</h3>
+                <p>${message}</p>
+            `;
             
-            // Simple fetch without extra parameters that might cause issues
-            fetch(SCRIPT_URL, {
-                method: 'GET',
-                redirect: 'follow'
-            })
-            .then(response => {
-                console.log('✅ Response received!');
-                console.log('📊 Status:', response.status);
-                console.log('📝 Status Text:', response.statusText);
-                console.log('🔗 Final URL:', response.url);
-                console.log('📋 Headers:', Object.fromEntries(response.headers.entries()));
+            statusDiv.className = 'status-card';
+            if (type === 'error') {
+                statusDiv.style.borderLeftColor = '#ff6b9d';
+                statusDiv.style.background = '#fff0f8';
+            } else if (type === 'success') {
+                statusDiv.style.borderLeftColor = '#4ade80';
+                statusDiv.style.background = '#f0fdf4';
+            } else {
+                statusDiv.style.borderLeftColor = '#8b64ff';
+                statusDiv.style.background = 'white';
+            }
+        }
+
+        // Main data loading function
+        async function loadData() {
+            console.log('🔄 Starting data load...');
+            updateStatus('Fetching data from Google Sheets...', 'info');
+            
+            // Disable buttons
+            document.getElementById('refreshBtn').disabled = true;
+            document.getElementById('exportBtn').disabled = true;
+            
+            // Show loading
+            document.getElementById('dataDisplay').innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <h3>Loading Data</h3>
+                    <p>Fetching submissions from Google Sheets...</p>
+                </div>
+            `;
+
+            try {
+                console.log('📞 Making request to:', APPS_SCRIPT_URL);
                 
+                const response = await fetch(APPS_SCRIPT_URL, {
+                    method: 'GET',
+                    cache: 'no-cache',
+                    redirect: 'follow'
+                });
+
+                console.log('📡 Response status:', response.status);
+                console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
-                
-                return response.text(); // Always get as text first
-            })
-            .then(rawText => {
-                console.log('📄 Raw response length:', rawText.length);
-                console.log('📄 Raw response (first 500 chars):', rawText.substring(0, 500));
-                
-                // Clean the response - sometimes there are extra characters
-                const cleanedText = rawText.trim();
-                
-                try {
-                    const submissions = JSON.parse(cleanedText);
-                    console.log('✅ Parsed JSON successfully!');
-                    console.log('📊 Data type:', typeof submissions);
-                    console.log('📊 Is array:', Array.isArray(submissions));
-                    console.log('📊 Data:', submissions);
+
+                const textData = await response.text();
+                console.log('📄 Raw response length:', textData.length);
+                console.log('📄 Raw response preview:', textData.substring(0, 200));
+
+                // Parse JSON
+                const jsonData = JSON.parse(textData);
+                console.log('✅ JSON parsed successfully');
+                console.log('📊 Data type:', typeof jsonData);
+                console.log('📊 Is array:', Array.isArray(jsonData));
+                console.log('📊 Data:', jsonData);
+
+                if (Array.isArray(jsonData)) {
+                    currentData = jsonData.filter(item => item && (item.name || item.email));
+                    console.log('✅ Filtered data:', currentData.length, 'valid submissions');
                     
-                    if (Array.isArray(submissions)) {
-                        console.log('📊 Number of submissions:', submissions.length);
-                        
-                        // Filter and validate submissions
-                        const validSubmissions = submissions.filter((sub, index) => {
-                            console.log(`🔍 Checking submission ${index}:`, sub);
-                            const isValid = sub && (sub.name || sub.email); // At least one field should exist
-                            if (!isValid) {
-                                console.log(`⚠️ Invalid submission ${index}:`, sub);
-                            }
-                            return isValid;
-                        });
-                        
-                        console.log('✅ Valid submissions:', validSubmissions.length);
-                        displaySubmissions(validSubmissions);
-                    } else if (submissions && submissions.error) {
-                        console.log('❌ Server returned error:', submissions.error);
-                        displayErrorState(new Error(`Server Error: ${submissions.error}`));
-                    } else {
-                        console.log('❌ Response is not an array:', typeof submissions);
-                        displayErrorState(new Error(`Invalid data format. Expected array, got: ${typeof submissions}`));
-                    }
-                } catch (parseError) {
-                    console.error('❌ JSON Parse Error:', parseError);
-                    console.log('📄 Full raw response:', rawText);
-                    displayErrorState(new Error(`Cannot parse response as JSON. Raw response: ${rawText.substring(0, 200)}...`));
+                    updateStatus(`Successfully loaded ${currentData.length} submissions`, 'success');
+                    displayData(currentData);
+                    updateStats(currentData);
+                } else {
+                    throw new Error(`Expected array, got ${typeof jsonData}`);
                 }
-            })
-            .catch(error => {
-                console.error('❌ Fetch Error:', error);
-                displayErrorState(error);
-            });
+
+            } catch (error) {
+                console.error('❌ Load error:', error);
+                updateStatus(`Error: ${error.message}`, 'error');
+                showError(error.message);
+            } finally {
+                // Re-enable buttons
+                document.getElementById('refreshBtn').disabled = false;
+                document.getElementById('exportBtn').disabled = false;
+            }
         }
-        
-        function displaySubmissions(submissions) {
-            const tableContainer = document.getElementById('submissionsTable');
-            
-            // Update stats
-            updateStats(submissions);
-            
-            if (submissions.length === 0) {
-                displayEmptyState();
+
+        // Display data in table
+        function displayData(data) {
+            const container = document.getElementById('dataDisplay');
+
+            if (data.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <h3>📝 No Submissions Found</h3>
+                        <p>No data found in Google Sheets. Try submitting a test form first.</p>
+                        <a href="index.html" class="btn btn-primary">Go to Form</a>
+                    </div>
+                `;
                 return;
             }
-            
+
             let tableHTML = `
-                <div style="margin-bottom: 20px; padding: 15px; background: #f8f4ff; border-radius: 10px; border-left: 4px solid #8b64ff;">
-                    <strong>📊 Google Sheets Data:</strong> Showing ${submissions.length} submission(s)
+                <div style="margin-bottom: 20px; padding: 15px; background: #f0fdf4; border-radius: 10px; border-left: 4px solid #4ade80;">
+                    <strong>📊 Google Sheets Data:</strong> ${data.length} submission(s) loaded
                     <br><small>Last updated: ${new Date().toLocaleString()}</small>
                 </div>
                 <table>
@@ -379,339 +457,156 @@
                             <th>Name</th>
                             <th>Email</th>
                             <th>Phone</th>
-                            <th>How Can I Help?</th>
+                            <th>Message</th>
                             <th>Submitted</th>
                         </tr>
                     </thead>
                     <tbody>
             `;
-            
-            submissions.forEach((submission, index) => {
-                let timestamp = 'Unknown';
+
+            data.forEach((item, index) => {
+                const name = item.name || 'N/A';
+                const email = item.email || 'N/A';
+                const phone = item.phone || 'N/A';
+                const help = item.help || 'N/A';
                 
-                // Handle different timestamp formats
-                if (submission.timestamp) {
-                    if (submission.timestamp instanceof Date) {
-                        timestamp = submission.timestamp.toLocaleString();
-                    } else if (typeof submission.timestamp === 'string') {
-                        timestamp = submission.timestamp;
-                    } else {
-                        try {
-                            timestamp = new Date(submission.timestamp).toLocaleString();
-                        } catch (e) {
-                            timestamp = String(submission.timestamp);
-                        }
+                let timestamp = 'Unknown';
+                if (item.timestamp) {
+                    try {
+                        timestamp = new Date(item.timestamp).toLocaleString();
+                    } catch (e) {
+                        timestamp = String(item.timestamp);
                     }
                 }
-                
+
                 tableHTML += `
                     <tr>
                         <td><span class="submission-id">${index + 1}</span></td>
-                        <td><strong>${escapeHtml(submission.name || 'N/A')}</strong></td>
-                        <td><a href="mailto:${escapeHtml(submission.email || '')}" style="color: #8b64ff;">${escapeHtml(submission.email || 'N/A')}</a></td>
-                        <td><a href="tel:${escapeHtml(submission.phone || '')}" style="color: #8b64ff;">${escapeHtml(submission.phone || 'N/A')}</a></td>
-                        <td><div class="help-text">${escapeHtml(submission.help || 'N/A')}</div></td>
+                        <td><strong>${escapeHtml(name)}</strong></td>
+                        <td>${email !== 'N/A' ? `<a href="mailto:${escapeHtml(email)}" style="color: #8b64ff;">${escapeHtml(email)}</a>` : 'N/A'}</td>
+                        <td>${phone !== 'N/A' ? `<a href="tel:${escapeHtml(phone)}" style="color: #8b64ff;">${escapeHtml(phone)}</a>` : 'N/A'}</td>
+                        <td><div class="help-text">${escapeHtml(help)}</div></td>
                         <td>${timestamp}</td>
                     </tr>
                 `;
             });
-            
+
             tableHTML += `
                     </tbody>
                 </table>
             `;
-            
-            tableContainer.innerHTML = tableHTML;
+
+            container.innerHTML = tableHTML;
         }
-        
-        function displayEmptyState() {
-            const tableContainer = document.getElementById('submissionsTable');
-            tableContainer.innerHTML = `
-                <div class="empty-state">
-                    <h3>📝 No Submissions in Google Sheets</h3>
-                    <p>When parents fill out the intake form, their submissions will appear here from Google Sheets.</p>
-                    <a href="index.html" class="btn btn-primary">Go to Intake Form</a>
+
+        // Show error state
+        function showError(message) {
+            document.getElementById('dataDisplay').innerHTML = `
+                <div class="error-state">
+                    <h3>⚠️ Connection Error</h3>
+                    <p><strong>Could not load data from Google Sheets</strong></p>
+                    <p>Error: ${escapeHtml(message)}</p>
+                    <button onclick="loadData()" class="btn btn-primary" style="margin: 10px;">🔄 Try Again</button>
+                    <button onclick="testConnection()" class="btn btn-secondary" style="margin: 10px;">🧪 Test Connection</button>
                 </div>
             `;
         }
-        
-        
-        function displayErrorState(error) {
-            const tableContainer = document.getElementById('submissionsTable');
-            tableContainer.innerHTML = `
-                <div style="text-align: center; padding: 40px; color: #ff6b9d; background: #fff0f8; border-radius: 15px; border: 2px solid #ff6b9d;">
-                    <h3>⚠️ Error Loading from Google Sheets</h3>
-                    <p><strong>Error:</strong> ${error.message}</p>
-                    <details style="margin: 20px 0; text-align: left;">
-                        <summary style="cursor: pointer; color: #8b64ff;">🔍 Click for debugging info</summary>
-                        <div style="background: #f8f4ff; padding: 15px; border-radius: 8px; margin-top: 10px; font-family: monospace; font-size: 0.9em;">
-                            <strong>Apps Script URL:</strong><br>
-                            ${SCRIPT_URL}<br><br>
-                            <strong>Troubleshooting Steps:</strong><br>
-                            1. Click "Test Apps Script" button<br>
-                            2. Check browser console (F12)<br>
-                            3. Verify Apps Script is deployed correctly<br>
-                            4. Make sure Google Sheet exists and has data
-                        </div>
-                    </details>
-                    <button onclick="testGoogleSheets()" class="btn btn-secondary" style="margin: 10px;">🧪 Test Apps Script</button>
-                    <button onclick="loadSubmissions()" class="btn btn-primary" style="margin: 10px;">🔄 Try Again</button>
-                </div>
-            `;
-        }
-            console.log('🧪 Testing Google Apps Script...');
-            alert('🧪 Testing Google Apps Script - Check the browser console (F12) for detailed results.');
-            
-            const testUrl = SCRIPT_URL + '?test=debug&t=' + Date.now();
-            console.log('🔗 Test URL:', testUrl);
-            
-            fetch(testUrl)
-                .then(response => {
-                    console.log('🎯 Test Response Status:', response.status);
-                    console.log('🎯 Test Response Headers:', [...response.headers.entries()]);
-                    return response.text();
-                })
-                .then(data => {
-                    console.log('🎯 Test Response Data:', data);
-                    
+
+        // Update statistics
+        function updateStats(data) {
+            const total = data.length;
+            const today = new Date().toDateString();
+            const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+            let todayCount = 0;
+            let weekCount = 0;
+
+            data.forEach(item => {
+                if (item.timestamp) {
                     try {
-                        const parsed = JSON.parse(data);
-                        console.log('✅ Test JSON Parse Success:', parsed);
-                        alert(`✅ Google Apps Script is working!\nData: ${JSON.stringify(parsed, null, 2)}`);
+                        const date = new Date(item.timestamp);
+                        if (date.toDateString() === today) todayCount++;
+                        if (date >= weekAgo) weekCount++;
                     } catch (e) {
-                        console.log('❌ Test JSON Parse Failed:', e);
-                        alert(`⚠️ Google Apps Script responded but data is not JSON:\n${data.substring(0, 200)}...`);
+                        // Ignore invalid dates
                     }
-                })
-                .catch(error => {
-                    console.error('❌ Test Failed:', error);
-                    alert(`❌ Google Apps Script test failed:\n${error.message}`);
-                });
+                }
+            });
+
+            document.getElementById('totalCount').textContent = total;
+            document.getElementById('todayCount').textContent = todayCount;
+            document.getElementById('weekCount').textContent = weekCount;
         }
-            const tableContainer = document.getElementById('submissionsTable');
-            tableContainer.innerHTML = `
-                <div style="text-align: center; padding: 40px; color: #ff6b9d;">
-                    <h3>⚠️ Error Loading from Google Sheets</h3>
-                    <p>Could not connect to Google Sheets: ${error.message}</p>
-                    <button onclick="loadSubmissions()" class="btn btn-primary" style="margin-top: 20px;">🔄 Try Again</button>
-                </div>
-            `;
+
+        // Test connection
+        async function testConnection() {
+            console.log('🧪 Testing connection...');
+            updateStatus('Testing connection to Google Sheets...', 'info');
+
+            try {
+                const response = await fetch(APPS_SCRIPT_URL);
+                const text = await response.text();
+                
+                console.log('🧪 Test response:', text);
+                
+                if (response.ok) {
+                    try {
+                        const json = JSON.parse(text);
+                        updateStatus('✅ Connection test successful!', 'success');
+                        alert(`✅ Connection successful!\n\nResponse: ${Array.isArray(json) ? `Array with ${json.length} items` : typeof json}\n\nCheck console for details.`);
+                    } catch (e) {
+                        updateStatus('⚠️ Connection works but invalid JSON response', 'warning');
+                        alert(`⚠️ Connected but got invalid JSON:\n\n${text.substring(0, 200)}...\n\nCheck your Apps Script code.`);
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                updateStatus(`❌ Connection test failed: ${error.message}`, 'error');
+                alert(`❌ Connection failed:\n\n${error.message}`);
+            }
         }
-            const submissions = JSON.parse(localStorage.getItem('intakeSubmissions')) || [];
-            const tableContainer = document.getElementById('submissionsTable');
-            
-            // Update stats
-            updateStats(submissions);
-            
-            if (submissions.length === 0) {
-                tableContainer.innerHTML = `
-                    <div class="empty-state">
-                        <h3>📝 No Submissions Yet</h3>
-                        <p>When parents fill out the intake form, their submissions will appear here.</p>
-                        <a href="index.html" class="btn btn-primary">Go to Intake Form</a>
-                    </div>
-                `;
+
+        // Export to CSV
+        function exportData() {
+            if (currentData.length === 0) {
+                alert('No data to export. Please load data first.');
                 return;
             }
-            
-            let tableHTML = `
-                <table>
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Phone</th>
-                            <th>How Can I Help?</th>
-                            <th>Submitted</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-            
-            submissions.forEach((submission, index) => {
-                tableHTML += `
-                    <tr>
-                        <td><span class="submission-id">${index + 1}</span></td>
-                        <td><strong>${escapeHtml(submission.name)}</strong></td>
-                        <td><a href="mailto:${escapeHtml(submission.email)}" style="color: #8b64ff;">${escapeHtml(submission.email)}</a></td>
-                        <td><a href="tel:${escapeHtml(submission.phone)}" style="color: #8b64ff;">${escapeHtml(submission.phone)}</a></td>
-                        <td><div class="help-text">${escapeHtml(submission.help)}</div></td>
-                        <td>${submission.timestamp}</td>
-                        <td>
-                            <div class="actions">
-                                <button onclick="deleteSubmission(${index})" class="action-btn delete-btn">Delete</button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
+
+            const headers = ['#', 'Name', 'Email', 'Phone', 'Message', 'Submitted'];
+            const csvRows = [headers.join(',')];
+
+            currentData.forEach((item, index) => {
+                const row = [
+                    index + 1,
+                    `"${(item.name || '').replace(/"/g, '""')}"`,
+                    `"${(item.email || '').replace(/"/g, '""')}"`,
+                    `"${(item.phone || '').replace(/"/g, '""')}"`,
+                    `"${(item.help || '').replace(/"/g, '""')}"`,
+                    `"${item.timestamp || ''}"`
+                ];
+                csvRows.push(row.join(','));
             });
-            
-            tableHTML += `
-                    </tbody>
-                </table>
-            `;
-            
-            tableContainer.innerHTML = tableHTML;
-        }
-        
-        function testGoogleSheets() {
-            console.log('🧪 Running simple test of Google Apps Script...');
-            
-            fetch(SCRIPT_URL, {
-                method: 'GET',
-                redirect: 'follow'
-            })
-                .then(response => {
-                    console.log('🎯 Test Response Status:', response.status);
-                    console.log('🎯 Test Response URL:', response.url);
-                    return response.text();
-                })
-                .then(data => {
-                    console.log('🎯 Test Response Data (first 200 chars):', data.substring(0, 200));
-                    console.log('🎯 Test Response Data (full):', data);
-                    
-                    try {
-                        const parsed = JSON.parse(data);
-                        console.log('✅ Test JSON Parse Success:', parsed);
-                        alert(`✅ Google Apps Script is working!\n\nReturned ${Array.isArray(parsed) ? parsed.length : 'non-array'} items\n\nCheck console for full details.`);
-                    } catch (e) {
-                        console.log('❌ Test JSON Parse Failed:', e);
-                        alert(`⚠️ Google Apps Script responded but data is not valid JSON:\n\n${data.substring(0, 300)}...\n\nCheck console for full response.`);
-                    }
-                })
-                .catch(error => {
-                    console.error('❌ Test Failed:', error);
-                    alert(`❌ Cannot connect to Google Apps Script:\n\n${error.message}\n\nCheck console for details.`);
-                });
-        }
-        
-        function updateStats(submissions) {
-            const total = submissions.length;
-            const today = new Date().toDateString();
-            const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-            
-            const todayCount = submissions.filter(sub => 
-                new Date(sub.timestamp).toDateString() === today
-            ).length;
-            
-            const weekCount = submissions.filter(sub => 
-                new Date(sub.timestamp) >= oneWeekAgo
-            ).length;
-            
-            document.getElementById('totalSubmissions').textContent = total;
-            document.getElementById('todaySubmissions').textContent = todayCount;
-            document.getElementById('weekSubmissions').textContent = weekCount;
-        }
-        
-        function deleteSubmission(index) {
-            if (confirm('Are you sure you want to delete this submission?')) {
-                let submissions = JSON.parse(localStorage.getItem('intakeSubmissions')) || [];
-                submissions.splice(index, 1);
-                localStorage.setItem('intakeSubmissions', JSON.stringify(submissions));
-                loadSubmissions();
-            }
-        }
-        
-        function clearAllData() {
-            if (confirm('Are you sure you want to delete ALL submissions? This cannot be undone.')) {
-                localStorage.removeItem('intakeSubmissions');
-                loadSubmissions();
-            }
-        }
-        
-        function testGoogleSheets() {
-            console.log('Testing Google Sheets connection...');
-            
-            fetch(SCRIPT_URL + '?test=true&t=' + Date.now())
-                .then(response => {
-                    console.log('Test response status:', response.status);
-                    return response.text();
-                })
-                .then(data => {
-                    console.log('Test response data:', data);
-                    alert(`Google Sheets Test Result:\nStatus: Connected\nData: ${data.substring(0, 100)}...`);
-                })
-                .catch(error => {
-                    console.error('Test error:', error);
-                    alert(`Google Sheets Test Result:\nStatus: Failed\nError: ${error.message}`);
-                });
-        }
-        
-        function exportToCSV() {
-            // Try to get from Google Sheets first
-            fetch(SCRIPT_URL)
-                .then(response => response.json())
-                .then(submissions => {
-                    if (submissions && !submissions.error && submissions.length > 0) {
-                        generateCSV(submissions, 'google_sheets');
-                    } else {
-                        // Fallback to localStorage
-                        const localSubmissions = JSON.parse(localStorage.getItem('intakeSubmissions')) || [];
-                        if (localSubmissions.length > 0) {
-                            generateCSV(localSubmissions, 'local_storage');
-                        } else {
-                            alert('No submissions to export.');
-                        }
-                    }
-                })
-                .catch(error => {
-                    const localSubmissions = JSON.parse(localStorage.getItem('intakeSubmissions')) || [];
-                    if (localSubmissions.length > 0) {
-                        generateCSV(localSubmissions, 'local_storage');
-                    } else {
-                        alert('No submissions to export.');
-                    }
-                });
-        }
-        
-        function generateCSV(submissions, source) {
-            const headers = ['ID', 'Name', 'Email', 'Phone', 'How Can I Help', 'Submitted', 'Source'];
-            const csvContent = [
-                headers.join(','),
-                ...submissions.map((submission, index) => {
-                    const timestamp = submission.timestamp instanceof Date ? 
-                        submission.timestamp.toLocaleString() : submission.timestamp;
-                    return [
-                        index + 1,
-                        `"${submission.name.replace(/"/g, '""')}"`,
-                        `"${submission.email.replace(/"/g, '""')}"`,
-                        `"${submission.phone.replace(/"/g, '""')}"`,
-                        `"${submission.help.replace(/"/g, '""')}"`,
-                        `"${timestamp.replace(/"/g, '""')}"`,
-                        source === 'google_sheets' ? 'Google Sheets' : 'Local Storage'
-                    ].join(',');
-                })
-            ].join('\n');
-            
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
+
+            const csvContent = csvRows.join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', `reading_specialist_submissions_${new Date().toISOString().split('T')[0]}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `reading_submissions_${new Date().toISOString().split('T')[0]}.csv`;
             link.click();
-            document.body.removeChild(link);
+            
+            URL.revokeObjectURL(url);
         }
-        
+
+        // Utility function to escape HTML
         function escapeHtml(text) {
-            const map = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#039;'
-            };
-            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
-        
-        // Load submissions when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('Page loaded, fetching data from Google Sheets...');
-            loadSubmissions();
-        });
     </script>
 </body>
 </html>
