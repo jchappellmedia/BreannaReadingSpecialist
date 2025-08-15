@@ -387,7 +387,7 @@
                 timestamp: new Date().toLocaleString()
             };
             
-            console.log('Submitting form data:', formData);
+            console.log('📝 Submitting form data:', formData);
             
             // Show loading state
             const submitBtn = document.querySelector('.submit-btn');
@@ -396,31 +396,54 @@
             submitBtn.disabled = true;
             
             // Send to Google Sheets
-            const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxcJQt_NwHbhVeRoRJgH1oN6aqCr0MJkHZl2RSkAaph44YaxmVEdxx46n9SXT1QO1Fj/exec';
+            const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzj19PcYmvqAf_pzZeXlI3K857i-WThmzK_xAJKhTKVvfVqv5M21avGcOjFibaEkMd7/exec';
             
-            // Save to localStorage as backup
+            // Save to localStorage as backup first
             let submissions = JSON.parse(localStorage.getItem('intakeSubmissions')) || [];
             submissions.push(formData);
             localStorage.setItem('intakeSubmissions', JSON.stringify(submissions));
+            console.log('💾 Saved to localStorage as backup');
             
-            // Send to Google Sheets using FormData
-            const formDataForSheets = new FormData();
-            formDataForSheets.append('name', formData.name);
-            formDataForSheets.append('email', formData.email);
-            formDataForSheets.append('phone', formData.phone);
-            formDataForSheets.append('help', formData.help);
+            // Create URL-encoded form data (more reliable than FormData for Google Apps Script)
+            const params = new URLSearchParams();
+            params.append('name', formData.name);
+            params.append('email', formData.email);
+            params.append('phone', formData.phone);
+            params.append('help', formData.help);
+            params.append('timestamp', formData.timestamp);
             
+            console.log('📤 Sending to Google Sheets:', params.toString());
+            
+            // Send to Google Sheets with better error handling
             fetch(SCRIPT_URL, {
                 method: 'POST',
-                body: formDataForSheets
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: params.toString()
             })
             .then(response => {
-                console.log('Google Sheets response:', response.status);
-                // Redirect to thank you page regardless of response
+                console.log('📡 Google Sheets response status:', response.status);
+                return response.text();
+            })
+            .then(responseText => {
+                console.log('📡 Google Sheets response text:', responseText);
+                try {
+                    const result = JSON.parse(responseText);
+                    console.log('✅ Google Sheets parsed response:', result);
+                    if (result.success) {
+                        console.log('✅ Successfully saved to Google Sheets');
+                    } else {
+                        console.warn('⚠️ Google Sheets returned error:', result.error);
+                    }
+                } catch (e) {
+                    console.warn('⚠️ Could not parse Google Sheets response as JSON:', responseText);
+                }
+                // Always redirect to thank you page
                 window.location.href = 'thank-you.html';
             })
             .catch(error => {
-                console.error('Google Sheets error:', error);
+                console.error('❌ Google Sheets error:', error);
                 // Still redirect since we saved to localStorage as backup
                 window.location.href = 'thank-you.html';
             });
